@@ -1,0 +1,15 @@
+CACHE MANIFEST
+
+#4574d752a6c64541ad01208245f03429 version 1370890103401
+
+CACHE:
+spritesheets/resources-images-map0.png
+spritesheets/spritesheetSizeMap.json
+game.html
+index.html
+browser-desktop.js
+
+FALLBACK:
+
+NETWORK:
+*

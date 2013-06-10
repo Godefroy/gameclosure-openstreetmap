@@ -1,0 +1,1 @@
+{:map {"resources/images/map-marker.png" {:group "resources-images-map", :marginTop 0, :y 2, :marginBottom 0, :x 2, :sheet "resources-images-map0.png", :marginRight 3, :sheetSize [256 256], :h 128, :marginLeft 23, :scale 1.0, :w 102}}, :hashes {("resources" "images" "map") 2715055658}}
