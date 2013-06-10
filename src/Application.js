@@ -29,7 +29,7 @@ exports = Class(GC.Application, function() {
       superview: this,
       width: device.width,
       height: device.height,
-      zIndex: 1000
+      zIndex: 1
     }, mapConfig);
 
     // Add a marker on the map
@@ -44,10 +44,10 @@ exports = Class(GC.Application, function() {
       superview: this,
       x: device.width - 40 * device.screen.devicePixelRatio,
       y: 50 * device.screen.devicePixelRatio,
-      zIndex: 1001,
+      zIndex: 2,
       width: 30 * device.screen.devicePixelRatio,
-      thumbSize: 30 * device.screen.devicePixelRatio,
       height: device.height - 100 * device.screen.devicePixelRatio,
+      thumbSize: 30 * device.screen.devicePixelRatio,
       minValue: -mapConfig.zMax * 100,
       maxValue: -mapConfig.zMin * 100,
       value: -mapConfig.position.z * 100,
@@ -78,7 +78,7 @@ exports = Class(GC.Application, function() {
       text: "+",
       x: device.width - 40 * device.screen.devicePixelRatio,
       y: 20 * device.screen.devicePixelRatio,
-      zIndex: 1001,
+      zIndex: 2,
       width: 30 * device.screen.devicePixelRatio,
       height: 30 * device.screen.devicePixelRatio,
       size: 20 * device.screen.devicePixelRatio,
@@ -92,7 +92,7 @@ exports = Class(GC.Application, function() {
       text: "-",
       x: device.width - 40 * device.screen.devicePixelRatio,
       y: device.height - 50 * device.screen.devicePixelRatio,
-      zIndex: 1001,
+      zIndex: 2,
       width: 30 * device.screen.devicePixelRatio,
       height: 30 * device.screen.devicePixelRatio,
       size: 20 * device.screen.devicePixelRatio,
