@@ -185,6 +185,15 @@ exports = Class(View, function (supr) {
    * @param  Number z   Zoom (optional)
    */
   this.setPosition = function (lat, lon, z) {
+    // Correction of coordinates that are out of boundaries
+    if (Math.abs(lat) > 85.0511) {
+      lat = lat + 85.0511 * 2 * (lat < 0 ? 1 : -1);
+    }
+    if (Math.abs(lon) > 180) {
+      lon = lon + 180 * 2 * (lon < 0 ? 1 : -1);
+    }
+
+    // Set new coordinates
     this.settings.position.lat = lat;
     this.settings.position.lon = lon;
     if (z != null) {
@@ -552,6 +561,12 @@ exports = Class(View, function (supr) {
    * @return Image
    */
   this._getTile = function (x, y, z, cacheonly) {
+    // Correction of coordinates that are out of boundaries
+    var nTiles = pow(2, z);
+    x = x < 0 ? nTiles + x : x % nTiles;
+    y = y < 0 ? nTiles + y : y % nTiles;
+
+    // Check the cache
     var cacheKey = x + "," + y + "," + z;
     if (!tilesCache[cacheKey] && !cacheonly) {
       tilesCache[cacheKey] = new Image({
