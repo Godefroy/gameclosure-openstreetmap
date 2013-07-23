@@ -1,6 +1,7 @@
 import device;
 import animate;
 import ui.View as View;
+import ui.GestureView as GestureView;
 import ui.ImageView as ImageView;
 import ui.resource.Image as Image;
 
@@ -9,15 +10,18 @@ import ui.resource.Image as Image;
  *
  * @event ZoomChange  zoom value
  */
-exports = Class(View, function (supr) {
+exports = Class(GestureView, function (supr) {
 
   /**
    * Constructor
+   * - Settings
+   * - Set events
    *
    * @param  object opts        View's options
    * @param  object mapSettings Map settings (override)
    */
   this.init = function (opts, mapSettings) {
+    var that = this;
 
     this.settings = merge(mapSettings, {
       // Width and height of each tile
@@ -34,8 +38,10 @@ exports = Class(View, function (supr) {
       },
       // Width (in pixels) of the zone outside the map where images should be loaded
       overflow: 50,
-      // Duration of animation (while zooming)
-      animationsDuration: 100,
+      // Duration of moving tiles and markers animations (0 to disable)
+      moveAnimations: 0,
+      // Duration of fading tiles animations (0 to disable)
+      fadeAnimations: 100,
       // Number of tiles to keep in cache
       maxTilesCache: 500,
       // Constructor of tiles URLs. Override it to use another API
@@ -43,6 +49,7 @@ exports = Class(View, function (supr) {
         return "http://" + ["a", "b", "c"][Math.random() * 3 | 0] + ".tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
       }
     });
+    this.tilesize_scaled = this.tilesize_scaled;
 
     // Latitude and longitude boundaries of displayed map
     this.bounds = {
@@ -67,15 +74,7 @@ exports = Class(View, function (supr) {
       clip: true
     });
     supr(this, "init", [opts]);
-  };
 
-
-  /**
-   * Set events and display map
-   */
-  this.buildView = function () {
-    var that = this;
-    this._refreshOnTick();
 
     // Mousewheel event (browser only) for zooming
     var canvas = GC.app.engine.getCanvas();
@@ -114,8 +113,20 @@ exports = Class(View, function (supr) {
       canvas.addEventListener("mousewheel", this.mouseWheelEvent, false);
     }
 
+    // Pinch to zoom
+    var _zoom = null;
+    this.on("Pinch", function (scale) {
+      if (_zoom === null) {
+        _zoom = that.settings.position.z;
+      }
+      that.zoom(_zoom + Math.log(scale) / Math.log(2), false);
+    });
+    this.on("ClearMulti", function (scale) {
+      _zoom = null;
+    });
+
     // Drag event for moving
-    this.on("Drag", function (dragEvent, moveEvent, delta) {
+    this.on("DragSingle", function (dx, dy) {
       var zoom = Math.ceil(that.settings.position.z);
       // Current tiles' size
       var tilesize = that.settings.tilesize * that._computeScale(zoom);
@@ -123,8 +134,8 @@ exports = Class(View, function (supr) {
       var tileX = lon2x(that.settings.position.lon, zoom);
       var tileY = lat2y(that.settings.position.lat, zoom);
       // Latitude and longitude from Y and X position, adding delta of Drag
-      var lat = y2lat(tileY - delta.y / tilesize, zoom);
-      var lon = x2lon(tileX - delta.x / tilesize, zoom);
+      var lat = y2lat(tileY - dy / tilesize, zoom);
+      var lon = x2lon(tileX - dx / tilesize, zoom);
       this.setPosition(lat, lon);
     });
     this.on("InputStart", function (evt){
@@ -133,10 +144,22 @@ exports = Class(View, function (supr) {
       });
     });
 
+    this._refreshOnTick();
   };
 
+
   this.tick = function () {
+    // Refresh map if needed
     if (this._refreshConfig.refreshOnTick) {
+      // Rescale tilesize
+      var parents = this.getParents();
+      var scale = this.style.scale;
+      for (var i = parents.length - 1; i >= 0; i--) {
+        scale *= parents[i].style.scale;
+      }
+      this.tilesize_scaled = this.settings.tilesize / scale;
+
+      // Refresh
       this._refresh();
     }
   }
@@ -214,7 +237,6 @@ exports = Class(View, function (supr) {
     var delta = this.settings.position.z - zoom;
     this.settings.position.z = zoom;
     this._refreshConfig = {
-      enableAnimations: true,
       zoomDirection: (delta ? (delta > 0 ? 1 : -1) : 0)
     };
     this._refreshOnTick();
@@ -244,7 +266,6 @@ exports = Class(View, function (supr) {
   this._resetRefreshConfig = function () {
     this._refreshConfig = {
       refreshOnTick: false,
-      enableAnimations: false,
       zoomDirection: 0
     }
   };
@@ -351,7 +372,7 @@ exports = Class(View, function (supr) {
   this._loadLayer = function (layer, zoom, cacheonly, onload) {
     var that = this;
     // Current tiles' size
-    var tilesize = this.settings.tilesize * that._computeScale(zoom);
+    var tilesize = this.tilesize_scaled * that._computeScale(zoom);
     // X,Y position (API) of map's center
     var centerTileX = lon2x(this.settings.position.lon, zoom);
     var centerTileY = lat2y(this.settings.position.lat, zoom);
@@ -408,10 +429,6 @@ exports = Class(View, function (supr) {
      * @param  Boolean   isNew     True if it's a new tile
      */
     var positionTile = function (imageView, isNew) {
-      var animation;
-      if(that._refreshConfig.enableAnimations) {
-        animation = that._animate(imageView);
-      }
       // Style to apply to the tile
       var style = {
         opacity: 1,
@@ -424,14 +441,14 @@ exports = Class(View, function (supr) {
       // and animate fade in (if animations are enabled)
       if (isNew) {
         imageView.style.update(style);
-        if (that._refreshConfig.enableAnimations) {
+        if (that.settings.fadeAnimations) {
           imageView.style.opacity = 0;
-          animation.then({opacity: 1}, that.settings.animationsDuration);
+          animate(imageView).then({opacity: 1}, that.settings.fadeAnimations);
         }
       // Else, animate (if animations are enabled)
       } else {
-        if(that._refreshConfig.enableAnimations) {
-          animation.then(style, that.settings.animationsDuration);
+        if(that.settings.moveAnimations) {
+          that._animate(imageView).then(style, that.settings.moveAnimations);
         } else {
           imageView.style.update(style);
         }
@@ -499,9 +516,8 @@ exports = Class(View, function (supr) {
           y: this.style.height * (object.settings.lat - this.bounds.latTop) / latHeight
         };
 
-        if (object.hasSuperview && this._refreshConfig.enableAnimations) {
-          var animation = this._animate(object);
-          animation.then(style, this.settings.animationsDuration);
+        if (object.hasSuperview && this.settings.moveAnimations) {
+          this._animate(object).then(style, this.settings.moveAnimations);
         } else {
           object.style.update(style);
         }
@@ -537,7 +553,7 @@ exports = Class(View, function (supr) {
   this._computeBoundaries = function () {
     var zoom = Math.ceil(this.settings.position.z)
     // Current tiles' size
-    var tilesize = this.settings.tilesize * this._computeScale(zoom);
+    var tilesize = this.tilesize_scaled * this._computeScale(zoom);
     // X and Y position from longitude and latitude
     var centerX = lon2x(this.settings.position.lon, zoom);
     var centerY = lat2y(this.settings.position.lat, zoom);
